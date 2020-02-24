@@ -1,0 +1,164 @@
+#
+# Check https://circleci.com/docs/2.0/language-javascript/ for more details
+#
+version: 2.1
+
+jobs:
+  prep:
+    docker:
+      - image: circleci/node:10.16.3
+    working_directory: ~/repo
+    steps:
+      - checkout:
+          path: ~/repo
+
+      - restore_cache:
+          name: restore client yarn package cache
+          keys:
+            - yarn-packages-{{ checksum "~/repo/client/yarn.lock" }}-1
+
+      - run:
+          name: install client dependencies
+          command: yarn install
+          working_directory: ~/repo/client
+
+      - save_cache:
+          name: save client yarn package cache
+          key: yarn-packages-{{ checksum "~/repo/client/yarn.lock" }}-1
+          paths:
+            - ~/repo/client/node_modules
+            - ~/.cache/Cypress
+
+      - restore_cache:
+          name: restore server yarn package cache
+          keys:
+            - yarn-packages-{{ checksum "~/repo/server/yarn.lock" }}-1
+
+      - run:
+          name: install server dependencies
+          command: yarn install
+          working_directory: ~/repo/server
+
+      - save_cache:
+          name: save server yarn package cache
+          key: yarn-packages-{{ checksum "~/repo/server/yarn.lock" }}-1
+          paths:
+            - ~/repo/server/node_modules
+
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - repo
+            - .cache/Cypress
+
+  unit:
+    docker:
+      - image: circleci/node:10.16.3
+    working_directory: ~/repo
+    environment:
+      CI: false
+    steps:
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: unit test react app
+          command: yarn test
+          working_directory: ~/repo/app
+
+  build:
+    docker:
+      - image: circleci/node:10.16.3
+    working_directory: ~/repo
+    environment:
+      CI: false
+    steps:
+      - attach_workspace:
+          at: ~/
+
+      - run:
+          name: build app
+          command: yarn build
+          working_directory: ~/repo/app
+
+      - run:
+          name: copy build directory to server directory
+          command: cp -ar app/build server
+
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - repo
+
+  e2e:
+    docker:
+      - image: cypress/base:10
+    working_directory: ~/repo
+    steps:
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: install pm2 & wait-on
+          command: |
+            apt-get update
+            apt-get install sudo
+            sudo npm install pm2 wait-on -g
+      - run:
+          name: start node server
+          command: pm2 start pm2.config.js
+          working_directory: ~/repo/server
+      - run:
+          name: e2e test app
+          command: |
+            wait-on http://localhost:3000
+            yarn test:e2e
+          working_directory: ~/repo/app
+
+  deploy-demo:
+    machine: true
+    working_directory: ~/repo
+    steps:
+      - attach_workspace:
+          at: ~/
+
+      - run:
+          name: 'build docker image and push to heroku'
+          working_directory: ~/repo/server
+          command: |
+            docker login -u _ -p $HEROKU_API_KEY registry.heroku.com
+            docker build -t registry.heroku.com/app-name/web .
+            docker push registry.heroku.com/app-name/web
+            export WEB_DOCKER_IMAGE_ID="$(docker inspect registry.heroku.com/app-name/web --format={{.Id}})"
+            curl -n -X PATCH https://api.heroku.com/apps/app-name/formation \
+              -d "{
+              \"updates\": [
+                {
+                  \"type\": \"web\",
+                  \"docker_image\": \"$WEB_DOCKER_IMAGE_ID\"
+                }
+              ]
+            }" \
+              -H "Authorization: Bearer $HEROKU_API_KEY" \
+              -H "Content-Type: application/json" \
+              -H "Accept: application/vnd.heroku+json; version=3.docker-releases"
+
+workflows:
+  version: 2
+  pipeline:
+    jobs:
+      - prep
+      - unit:
+          requires:
+            - prep
+      - build:
+          requires:
+            - unit
+      - e2e:
+          requires:
+            - build
+      - deploy-demo:
+          requires:
+            - e2e
+          filters:
+            branches:
+              only:
+                - develop
