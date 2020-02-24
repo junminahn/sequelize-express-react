@@ -16,7 +16,8 @@ const users = require('./routes/users');
 
 const isProd = process.env.NODE_ENV === 'production';
 const skipAuth = process.env.NO_AUTH === 'true';
-const sessionSecret = process.env.SESSION_SECRET || 'change me pls for the love of Jibbers Crabst';
+const sessionSecret =
+  process.env.SESSION_SECRET || 'change me pls for the love of Jibbers Crabst';
 
 const ONE_DAY = 24 * (60 * 60 * 1000);
 const TWO_WEEKS = 14 * ONE_DAY;
@@ -32,16 +33,18 @@ app.set('view engine', 'pug');
 //app.use(favicon(__dirname + '/public/favicon.ico'));
 app.use(logger('dev'));
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.urlencoded({extended: false}));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(
   compress({
     filter: (req, res) => {
-      return /json|text|javascript|css|font|svg/.test(res.getHeader('Content-Type'));
+      return /json|text|javascript|css|font|svg/.test(
+        res.getHeader('Content-Type')
+      );
     },
-    level: 9,
+    level: 9
   })
 );
 
@@ -61,10 +64,10 @@ app.use(
       // secure cookie should be turned to true to provide additional
       // layer of security so that the cookie is set only when working
       // in HTTPS mode.
-      secure: false,
+      secure: false
     },
     name: 'sessionId',
-    store: memoryStore,
+    store: memoryStore
   })
 );
 
@@ -77,7 +80,7 @@ app.use(
   helmet.hsts({
     maxAge: TWO_WEEKS,
     includeSubDomains: true,
-    force: true,
+    force: true
   })
 );
 
@@ -101,13 +104,13 @@ if (!isProd) {
 }
 
 const keycloak = new Keycloak({
-  store: memoryStore,
+  store: memoryStore
 });
 
 app.use(
   keycloak.middleware({
     logout: '/logout',
-    admin: '/',
+    admin: '/'
   })
 );
 
@@ -119,7 +122,7 @@ else
   );
 
 // Keycloak callbak; do not keycloak.protect() to avoid users being authenticated against their will via XSS attack
-app.get('/login', (req, res) => res.redirect(302, '/'));
+app.get('/login', keycloak.protect(), (req, res) => res.redirect(302, '/'));
 
 app.use('/', routes);
 app.use('/users', users);
@@ -137,7 +140,7 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500);
   res.render('error', {
     message: err.message,
-    error: app.get('env') === 'development' ? err : {},
+    error: app.get('env') === 'development' ? err : {}
   });
 });
 

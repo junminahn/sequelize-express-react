@@ -1,8 +1,8 @@
 {
-  "realm": "pisrwwhx",
-  "auth-server-url": "https://sso-dev.pathfinder.gov.bc.ca/auth",
+  "realm": "demo",
+  "auth-server-url": "https://keycloak-dm.herokuapp.com/auth",
   "ssl-required": "external",
-  "resource": "cas-ciip-portal",
+  "resource": "demo-client",
   "public-client": true,
   "confidential-port": 0
 }
