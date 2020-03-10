@@ -1,0 +1,11 @@
+setup:
+  addons:
+    - plan: heroku-postgresql:hobby-dev
+      as: DATABASE
+build:
+  docker:
+    web: Dockerfile
+  config:
+    KEYCLOAK_USER: admin
+    KEYCLOAK_PASSWORD: admin
+    PROXY_ADDRESS_FORWARDING: true
