@@ -1,5 +1,9 @@
 FROM jboss/keycloak:latest
 
+ENV KEYCLOAK_USER admin
+ENV KEYCLOAK_PASSWORD admin
+ENV PROXY_ADDRESS_FORWARDING true
+
 COPY docker-entrypoint.sh /opt/jboss/tools
 
 ENTRYPOINT [ "/opt/jboss/tools/docker-entrypoint.sh" ]
