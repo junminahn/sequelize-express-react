@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'PRIME-code-challenge',
+      name: 'backend',
       script: './bin/www',
       watch: false,
       env: {
